@@ -274,6 +274,11 @@ type SelectMenu struct {
 
 	// Unique identifier for the component; auto populated through increment if not provided.
 	ID int `json:"id,omitempty"`
+
+	// Values contains the selected option values (for string select) or entity IDs (for user/role/channel/mentionable select).
+	// This field is populated in modal interaction responses and message component interactions.
+	// For outgoing components (when creating menus), this field should not be set.
+	Values []string `json:"values,omitempty"`
 }
 
 // Type is a method to get the type of a component.
