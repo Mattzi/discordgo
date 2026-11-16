@@ -264,20 +264,15 @@ type SelectMenu struct {
 
 	Options  []SelectMenuOption `json:"options,omitempty"`
 	Disabled bool               `json:"disabled"`
+	Required *bool              `json:"required,omitempty"`
 
 	// NOTE: Can only be used in SelectMenu with Channel menu type.
 	ChannelTypes []ChannelType `json:"channel_types,omitempty"`
 
-	// Whether the select menu is required to answer in a modal (defaults to true).
-	// Only available for select menus in modals. Ignored in messages.
-	Required *bool `json:"required,omitempty"`
-
 	// Unique identifier for the component; auto populated through increment if not provided.
 	ID int `json:"id,omitempty"`
 
-	// Values contains the selected option values (for string select) or entity IDs (for user/role/channel/mentionable select).
-	// This field is populated in modal interaction responses and message component interactions.
-	// For outgoing components (when creating menus), this field should not be set.
+	// List of values that is only populated when receiving an interaction response; do not fill this manually.
 	Values []string `json:"values,omitempty"`
 }
 
@@ -305,11 +300,11 @@ func (s SelectMenu) MarshalJSON() ([]byte, error) {
 // TextInput represents text input component.
 type TextInput struct {
 	CustomID    string         `json:"custom_id"`
-	Label       string         `json:"label"`
+	Label       string         `json:"label,omitempty"`
 	Style       TextInputStyle `json:"style"`
 	Placeholder string         `json:"placeholder,omitempty"`
 	Value       string         `json:"value,omitempty"`
-	Required    bool           `json:"required"`
+	Required    *bool          `json:"required,omitempty"`
 	MinLength   int            `json:"min_length,omitempty"`
 	MaxLength   int            `json:"max_length,omitempty"`
 
@@ -399,8 +394,6 @@ func (s Section) MarshalJSON() ([]byte, error) {
 
 // TextDisplay is a top-level component that allows you to add markdown-formatted text to the message.
 type TextDisplay struct {
-	// Unique identifier for the component; auto populated through increment if not provided.
-	ID      int    `json:"id,omitempty"`
 	Content string `json:"content"`
 }
 
@@ -488,10 +481,6 @@ type FileComponent struct {
 	ID      int               `json:"id,omitempty"`
 	File    UnfurledMediaItem `json:"file"`
 	Spoiler bool              `json:"spoiler"`
-	// The name of the file. This field is ignored and provided by the API as part of the response.
-	Name string `json:"name,omitempty"`
-	// The size of the file in bytes. This field is ignored and provided by the API as part of the response.
-	Size int `json:"size,omitempty"`
 }
 
 // Type is a method to get the type of a component.
@@ -599,70 +588,19 @@ func (c Container) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// UnfurledMediaItem represents an unfurled media item.
-type UnfurledMediaItem struct {
-	URL string `json:"url"`
-	// The proxied url of the media item. This field is ignored and provided by the API as part of the response.
-	ProxyURL *string `json:"proxy_url,omitempty"`
-	// The height of the media item. This field is ignored and provided by the API as part of the response.
-	Height *int `json:"height,omitempty"`
-	// The width of the media item. This field is ignored and provided by the API as part of the response.
-	Width *int `json:"width,omitempty"`
-	// The media type of the content. This field is ignored and provided by the API as part of the response.
-	ContentType *string `json:"content_type,omitempty"`
-	// The id of the uploaded attachment. This field is ignored and provided by the API as part of the response.
-	// Only present if the media item was uploaded as an attachment.
-	AttachmentID *string `json:"attachment_id,omitempty"`
-}
-
-// UnfurledMediaItemLoadingState is the loading state of the unfurled media item.
-type UnfurledMediaItemLoadingState uint
-
-// Unfurled media item loading states.
-const (
-	UnfurledMediaItemLoadingStateUnknown        UnfurledMediaItemLoadingState = 0
-	UnfurledMediaItemLoadingStateLoading        UnfurledMediaItemLoadingState = 1
-	UnfurledMediaItemLoadingStateLoadingSuccess UnfurledMediaItemLoadingState = 2
-	UnfurledMediaItemLoadingStateLoadedNotFound UnfurledMediaItemLoadingState = 3
-)
-
-// ResolvedUnfurledMediaItem represents a resolved unfurled media item.
-type ResolvedUnfurledMediaItem struct {
-	URL         string `json:"url"`
-	ProxyURL    string `json:"proxy_url"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
-	ContentType string `json:"content_type"`
-}
-
-// Label is a top-level layout component. Labels wrap modal components with text as a label and optional description.
+// Label is a top-level layout component.
+// Labels wrap modal components with text as a label and optional description.
 type Label struct {
 	// Unique identifier for the component; auto populated through increment if not provided.
-	ID int `json:"id,omitempty"`
-	// The label text; max 45 characters.
-	Label string `json:"label"`
-	// An optional description text for the label; max 100 characters.
-	Description *string `json:"description,omitempty"`
-	// The component within the label.
-	Component MessageComponent `json:"component"`
+	ID          int              `json:"id,omitempty"`
+	Label       string           `json:"label"`
+	Description string           `json:"description,omitempty"`
+	Component   MessageComponent `json:"component"`
 }
 
 // Type is a method to get the type of a component.
 func (Label) Type() ComponentType {
 	return LabelComponent
-}
-
-// MarshalJSON is a method for marshaling Label to a JSON object.
-func (l Label) MarshalJSON() ([]byte, error) {
-	type label Label
-
-	return Marshal(struct {
-		label
-		Type ComponentType `json:"type"`
-	}{
-		label: label(l),
-		Type:  l.Type(),
-	})
 }
 
 // UnmarshalJSON is a method for unmarshaling Label from JSON
@@ -685,18 +623,31 @@ func (l *Label) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// MarshalJSON is a method for marshaling Label to a JSON object.
+func (l Label) MarshalJSON() ([]byte, error) {
+	type label Label
+
+	return Marshal(struct {
+		label
+		Type ComponentType `json:"type"`
+	}{
+		label: label(l),
+		Type:  l.Type(),
+	})
+}
+
 // FileUpload is an interactive component that allows users to upload files in modals.
+// FileUploads are available on modals. They must be placed inside a Label.
 type FileUpload struct {
 	// Unique identifier for the component; auto populated through increment if not provided.
-	ID int `json:"id,omitempty"`
-	// Developer-defined identifier for the file upload; max 100 characters.
-	CustomID string `json:"custom_id"`
-	// Minimum number of items that must be uploaded (defaults to 1); min 0, max 10.
-	MinValues *int `json:"min_values,omitempty"`
-	// Maximum number of items that can be uploaded (defaults to 1); max 10.
-	MaxValues *int `json:"max_values,omitempty"`
-	// Whether the file upload requires files to be uploaded before submitting the modal (defaults to true).
-	Required *bool `json:"required,omitempty"`
+	ID        int    `json:"id,omitempty"`
+	CustomID  string `json:"custom_id,omitempty"`
+	MinValues *int   `json:"min_values,omitempty"`
+	MaxValues int    `json:"max_values,omitempty"`
+	Required  *bool  `json:"required,omitempty"`
+
+	// List of values that is only populated when receiving an interaction response; do not fill this manually.
+	Values []string `json:"values,omitempty"`
 }
 
 // Type is a method to get the type of a component.
@@ -715,4 +666,29 @@ func (f FileUpload) MarshalJSON() ([]byte, error) {
 		fileUpload: fileUpload(f),
 		Type:       f.Type(),
 	})
+}
+
+// UnfurledMediaItem represents an unfurled media item.
+type UnfurledMediaItem struct {
+	URL string `json:"url"`
+}
+
+// UnfurledMediaItemLoadingState is the loading state of the unfurled media item.
+type UnfurledMediaItemLoadingState uint
+
+// Unfurled media item loading states.
+const (
+	UnfurledMediaItemLoadingStateUnknown        UnfurledMediaItemLoadingState = 0
+	UnfurledMediaItemLoadingStateLoading        UnfurledMediaItemLoadingState = 1
+	UnfurledMediaItemLoadingStateLoadingSuccess UnfurledMediaItemLoadingState = 2
+	UnfurledMediaItemLoadingStateLoadedNotFound UnfurledMediaItemLoadingState = 3
+)
+
+// ResolvedUnfurledMediaItem represents a resolved unfurled media item.
+type ResolvedUnfurledMediaItem struct {
+	URL         string `json:"url"`
+	ProxyURL    string `json:"proxy_url"`
+	Width       int    `json:"width"`
+	Height      int    `json:"height"`
+	ContentType string `json:"content_type"`
 }
